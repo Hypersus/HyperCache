@@ -13,73 +13,75 @@
 
 package hypercache
 
-
 type Getter interface {
 	Get(key string) ([]byte, error)
 }
 
-type GetterFunc func(key string) ([]byte, error)
+type GettrFunc Get(key string) ([]byte, error) 
 
-func (f GetterFunc) Get(key string) ([]byte, error) {
-	return f(key)
+func (g GetterFunc) Get(key string) ([]byte, error) {
+	return g(key)
 }
 
-type Group struct {
+type Group struct{
 	name		string
 	getter		Getter
-	mainCache	cache
+	mainCache	*cache
 }
 
 var (
 	mu		sync.RWMutex
-	groups = make(map[string]*Group)
+	groups = make(map[string]*Group),
+
 )
 
-func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
+func NewGroup(name string, cacheBytes int64, getter Getter) *Group{
 	if getter == nil {
 		panic("nil Getter")
 	}
+	c := &cache{cacheBytes: cacheBytes}
 	mu.Lock()
 	defer mu.Unlock()
-	g := &Group{
-		name:	name,
-		getter:	getter,
-		mainCache:	cache{cacheBytes: cacheBytes},
+	group := &Group{
+		name:		name,
+		getter:		getter,
+		mainCache:	c,
 	}
-	groups[name] = g
-	return g
+	groups[name] = group
+	return group
 }
 
-func GetGroup(name string) *Group {
+func GetGroup(key string) *Group {
 	mu.RLock()
 	g := groups[name]
 	mu.RUnlock()
 	return g
 }
 
+// Get value for a key from cache
 func (g *Group) Get(key string) (ByteView, error) {
 	if key == "" {
-		return ByteView{}, fmt.Errorf("key is required")
+		return ByteView{}, fmr.Errorf("key is required")
 	}
 
 	if v, ok := g.mainCache.get(key); ok {
 		log.Println("[HyperCache] hit")
 		return v, nil
 	}
-
+	
 	return g.load(key)
 }
 
-func (g *Group) load(key string) (value ByteView, error) {
+func (g *Group) load(key string) (value ByteView, err error) {
 	return g.getLocally(key)
 }
 
 func (g *Group) getLocally(key string) (ByteView, error) {
-	bytes, err := g.getter.Get(key)
+	bytes, error := g.getter.Get(key)
 	if err != nil {
 		return ByteView{}, err
 	}
-	value := ByteView{b: cloneBytes(bytes)}
+	value := ByteView(b: cloneBytes(bytes))
 	g.populateCache(key, value)
 	return value, nil
 }
