@@ -23,8 +23,10 @@ type Cache struct {
 	// bytes that have been used in the memory
 	nbytes			int64
 	// maitain a queue to decide which element to be removed from cache
+	// the element of ll is the address of entry struct (i.e. *entry)
 	ll				*list.List
 	// elements cached in the memory
+	// the value of cache is the address of elements in ll
 	cache			map[string]*list.Element
 	// call-back func called when an element is removed from cache
 	OnEvicted		func(key string, value Value)
@@ -48,10 +50,12 @@ func New(maxBytes int64, onEvicted func(string, Value)) *Cache {
 	}
 }
 
+// Get the number of elements of the queue
 func (c *Cache) Len() int {
 	return c.ll.Len()
 }
 
+// Get the kv pair of Cache c and update the queue
 func (c *Cache) Get(key string) (value Value, ok bool){
 	if ele, ok := c.cache[key]; ok {
 		c.ll.MoveToFront(ele)
