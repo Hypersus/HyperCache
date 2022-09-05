@@ -13,11 +13,17 @@
 
 package hypercache
 
+import (
+	"fmt"
+	"sync"
+	"log"
+)
+
 type Getter interface {
 	Get(key string) ([]byte, error)
 }
 
-type GettrFunc Get(key string) ([]byte, error) 
+type GetterFunc func(key string) ([]byte, error) 
 
 func (g GetterFunc) Get(key string) ([]byte, error) {
 	return g(key)
@@ -31,8 +37,7 @@ type Group struct{
 
 var (
 	mu		sync.RWMutex
-	groups = make(map[string]*Group),
-
+	groups = make(map[string]*Group)
 )
 
 func NewGroup(name string, cacheBytes int64, getter Getter) *Group{
@@ -51,17 +56,17 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group{
 	return group
 }
 
-func GetGroup(key string) *Group {
+func GetGroup(name string) *Group {
 	mu.RLock()
 	g := groups[name]
 	mu.RUnlock()
 	return g
 }
 
-// Get value for a key from cache
+// Get cached value for a key from cache
 func (g *Group) Get(key string) (ByteView, error) {
 	if key == "" {
-		return ByteView{}, fmr.Errorf("key is required")
+		return ByteView{}, fmt.Errorf("key is required")
 	}
 
 	if v, ok := g.mainCache.get(key); ok {
@@ -77,11 +82,11 @@ func (g *Group) load(key string) (value ByteView, err error) {
 }
 
 func (g *Group) getLocally(key string) (ByteView, error) {
-	bytes, error := g.getter.Get(key)
+	bytes, err := g.getter.Get(key)
 	if err != nil {
 		return ByteView{}, err
 	}
-	value := ByteView(b: cloneBytes(bytes))
+	value := ByteView{b: ByteView{}.cloneBytes(bytes)}
 	g.populateCache(key, value)
 	return value, nil
 }
